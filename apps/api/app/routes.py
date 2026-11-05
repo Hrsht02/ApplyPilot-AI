@@ -1,5 +1,5 @@
+import asyncio
 import hashlib
-import os
 import secrets
 import uuid
 from typing import Literal
@@ -15,6 +15,8 @@ from app.db import get_db
 from app.models import Application, Company, KnowledgeDocument, ProviderCredential, User
 from app.providers.registry import ProviderValidationError, validate_provider_key
 from app.security import encrypt_secret
+from app.storage import StorageError, save_bytes
+from app.worker.tasks import extract_document
 from app.session_store import get_session
 
 router = APIRouter(prefix="/v1")
@@ -94,24 +96,49 @@ async def keys(u: User = Depends(current_user), db: AsyncSession = Depends(get_d
     return [{"provider": row.provider, "model": row.model, "configured": True} for row in rows]
 
 
-@router.post("/documents")
-async def upload(file: UploadFile = File(...), u: User = Depends(current_user), db: AsyncSession = Depends(get_db)):
+@router.post("/documents", status_code=202)
+async def upload(
+    file: UploadFile = File(...),
+    u: User = Depends(current_user),
+    db: AsyncSession = Depends(get_db),
+):
     if not file.filename or file.content_type != "application/pdf" or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(415, "PDF only")
     data = await file.read(settings.max_upload_mb * 1024 * 1024 + 1)
     if len(data) > settings.max_upload_mb * 1024 * 1024:
         raise HTTPException(413, "PDF too large")
+    if not data.startswith(b"%PDF-"):
+        raise HTTPException(415, "The uploaded file is not a valid PDF")
     key = f"{u.id}/{hashlib.sha256(data).hexdigest()}.pdf"
-    path = os.path.join(settings.local_storage_path, key)
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "wb") as output:
-        output.write(data)
+    try:
+        await asyncio.to_thread(save_bytes, key, data, "application/pdf")
+    except StorageError as exc:
+        raise HTTPException(503, "Document storage is unavailable") from exc
     document = KnowledgeDocument(user_id=u.id, filename=file.filename[:255], storage_key=key)
     db.add(document)
     await db.commit()
     await db.refresh(document)
-    return {"id": str(document.id), "filename": document.filename, "status": document.status}
+    try:
+        extract_document.delay(str(document.id))
+    except Exception as exc:
+        document.status = "queue_error"
+        await db.commit()
+        raise HTTPException(503, "PDF stored, but the processing queue is unavailable") from exc
+    return {"id": str(document.id), "filename": document.filename, "status": "queued"}
 
+
+@router.get("/documents")
+async def list_documents(u: User = Depends(current_user), db: AsyncSession = Depends(get_db)):
+    rows = (await db.execute(
+        select(KnowledgeDocument)
+        .where(KnowledgeDocument.user_id == u.id)
+        .order_by(KnowledgeDocument.created_at.desc())
+        .limit(100)
+    )).scalars()
+    return [
+        {"id": str(row.id), "filename": row.filename, "status": row.status, "created_at": row.created_at.isoformat()}
+        for row in rows
+    ]
 
 @router.post("/companies")
 async def add_company(p: CompanyIn, u: User = Depends(current_user), db: AsyncSession = Depends(get_db)):
