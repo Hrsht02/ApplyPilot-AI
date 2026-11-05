@@ -42,7 +42,7 @@ async def process_document(document_id: str) -> str:
         content = await asyncio.to_thread(read_bytes, document.storage_key)
         try:
             extracted = await asyncio.to_thread(extract_pdf_text, content)
-        except (PdfReadError, ValueError):
+        except Exception:
             document.status = "failed"
             document.extracted_text = None
             await db.commit()
