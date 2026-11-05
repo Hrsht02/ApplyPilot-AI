@@ -32,6 +32,6 @@ Google sign-in uses one-time Redis OAuth state, nonce verification, PKCE S256, G
 GitHub Actions installs API dependencies and runs pytest, then installs web dependencies and runs TypeScript checks and a Next.js production build.
 
 ## Safety and production readiness
-Application submission must require explicit user approval. The system must not bypass CAPTCHA, MFA, bot protection, access controls, or site restrictions, and must not invent candidate answers. Review docs/PRODUCTION_CHECKLIST.md.
+Application submission must require explicit user approval. The system must not bypass CAPTCHA, MFA, bot protection, access controls, or site restrictions, and must not invent candidate answers. Review docs/PRODUCTION_CHECKLIST.md and docs/ROADMAP.md for the current implementation status.
 
 This repository is not yet load-tested and makes no claim of supporting 1,000 concurrent sessions. Capacity must be established with realistic API, queue, database and browser-worker load tests.
