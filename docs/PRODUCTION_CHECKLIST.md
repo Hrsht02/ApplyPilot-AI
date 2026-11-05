@@ -9,7 +9,7 @@ This is an evolving engineering checklist, not a certification that the applicat
 
 ## Data and secrets
 - [x] Add an initial Alembic schema migration. [ ] Add backup/restore drills, retention and deletion workflows.
-- [ ] Replace local uploads with private object storage, signed URLs, malware scanning and upload limits.
+- [x] Add local shared-volume and S3-compatible object-storage adapters with bounded PDF uploads. [ ] Provision a private S3 bucket, configure credentials, add malware scanning, retention controls and signed access where needed.
 - [ ] Encrypt BYOK credentials with managed KMS/envelope encryption; never log plaintext keys.
 - [ ] Add request limits, quotas and per-user/provider rate limits.
 
