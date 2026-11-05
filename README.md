@@ -3,7 +3,7 @@
 AI-assisted job application workspace. The product direction is to let candidates connect their own model provider, upload career documents, discover roles from company career pages, prepare applications, and track progress.
 
 ## Foundation status
-The repository contains a Next.js web shell, FastAPI API, PostgreSQL models, Redis/Celery worker bootstrap, local Docker Compose, Render Blueprint, and GitHub Actions checks. Google sign-in intentionally fails closed until secure OAuth state/nonce validation and session issuance are implemented. The development-only user UUID header is not production authentication.
+The repository contains a Next.js web shell, FastAPI API, PostgreSQL models and migrations, Redis/Celery worker bootstrap, Google OAuth sign-in, opaque Redis-backed sessions, local Docker Compose, Render Blueprint, and GitHub Actions checks. The development-only user UUID header remains available only when APP_ENV=development; it is not production authentication.
 
 ## Stack
 - Web: Next.js 15, React 19, TypeScript
