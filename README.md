@@ -20,6 +20,14 @@ The repository contains a Next.js web shell, FastAPI API, PostgreSQL models, Red
 
 The local Compose database password is for development only. Never reuse it in hosted environments. Set CREDENTIAL_ENCRYPTION_KEY to a strong random secret before saving provider credentials.
 
+## Google sign-in setup
+1. Create an OAuth 2.0 Web application client in Google Cloud.
+2. Add the exact API callback URL from GOOGLE_REDIRECT_URI to the authorized redirect URIs.
+3. Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and GOOGLE_REDIRECT_URI in the API environment.
+4. Set APP_BASE_URL to the frontend origin. For production browser sessions, use a frontend and API on the same site (for example, app.example.com and api.example.com); default Vercel and Render hostnames are cross-site and may be blocked by browser third-party-cookie policies.
+
+Google sign-in uses one-time Redis OAuth state, nonce verification, PKCE S256, Google ID-token signature/audience verification, and an opaque HttpOnly session cookie. State-changing authenticated API calls require a CSRF token returned by /api/auth/me.
+
 ## CI checks
 GitHub Actions installs API dependencies and runs pytest, then installs web dependencies and runs TypeScript checks and a Next.js production build.
 
