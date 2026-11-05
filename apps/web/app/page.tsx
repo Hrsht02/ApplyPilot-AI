@@ -1,17 +1,182 @@
 "use client";
-import {useState} from "react";
-const api=process.env.NEXT_PUBLIC_API_BASE_URL??"http://localhost:8000";
-export default function Home(){
- const [uid,setUid]=useState(""),[url,setUrl]=useState(""),[provider,setProvider]=useState("gemini"),[model,setModel]=useState("gemini-2.5-flash"),[key,setKey]=useState(""),[docs,setDocs]=useState<any[]>([]),[history,setHistory]=useState<any[]>([]),[msg,setMsg]=useState("Add a company careers URL to begin.");
- const headers={"X-User-Id":uid};
- async function saveKey(){const r=await fetch(api+"/api/v1/settings/provider-key",{method:"PUT",headers:{...headers,"Content-Type":"application/json"},body:JSON.stringify({provider,model,api_key:key})});setMsg(r.ok?"Encrypted key saved.":await r.text());setKey("")}
- async function addCompany(){const r=await fetch(api+"/api/v1/companies",{method:"POST",headers:{...headers,"Content-Type":"application/json"},body:JSON.stringify({website_url:url})});setMsg(r.ok?"Company submitted to discovery queue.":await r.text())}
- async function upload(f?:File){if(!f)return;const d=new FormData();d.append("file",f);const r=await fetch(api+"/api/v1/documents",{method:"POST",headers,body:d});if(r.ok){const x=await r.json();setDocs(v=>[x,...v]);setMsg("PDF uploaded.")}else setMsg(await r.text())}
- async function load(){const r=await fetch(api+"/api/v1/applications",{headers});if(r.ok)setHistory(await r.json());else setMsg(await r.text())}
- return <main className="wrap"><nav><b>◈ ApplyPilot <span>AI</span></b><a href={api+"/api/auth/google"}>Continue with Google ↗</a></nav><header><small>YOUR CAREER WORKSPACE</small><h1>Make every application<br/><i>count.</i></h1><p>Bring your own AI key. Add a company career page. Organize your experience, discover roles, and prepare applications for your review.</p><div className="notice">● {msg}</div></header><section className="grid">
- <article className="panel wide"><small>01 / DISCOVERY</small><h2>Company career page</h2><label>Company website or careers URL</label><div className="line"><input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://company.com/careers"/><button onClick={addCompany}>Add company ↗</button></div><p>Company discovery and job extraction are worker milestones.</p></article>
- <article className="panel"><small>02 / MODEL ACCESS · BYOK</small><h2>Your AI provider</h2><label>Provider</label><select value={provider} onChange={e=>{setProvider(e.target.value);setModel(({gemini:"gemini-2.5-flash",openai:"gpt-4.1-mini",anthropic:"claude-3-7-sonnet-latest",xai:"grok-3-mini"} as Record<string,string>)[e.target.value])}}><option value="gemini">Gemini</option><option value="openai">OpenAI</option><option value="anthropic">Claude</option><option value="xai">Grok</option></select><label>Model</label><input value={model} onChange={e=>setModel(e.target.value)}/><label>API key</label><input type="password" value={key} onChange={e=>setKey(e.target.value)} placeholder="Paste key"/><button className="full" onClick={saveKey}>Save encrypted key</button><p>Key is not returned by API.</p></article>
- <article className="panel"><small>03 / YOUR CONTEXT</small><h2>Knowledge base</h2><label className="drop"><input type="file" accept="application/pdf,.pdf" onChange={e=>upload(e.target.files?.[0])}/><strong>＋ Upload resume / knowledge PDF</strong><span>PDF only · 20 MB limit</span></label>{docs.map(d=><div className="row" key={d.id}>{d.filename}<small>{d.status}</small></div>)}</article>
- <article className="panel"><small>04 / TRACKING</small><h2>Application history <button className="quiet" onClick={load}>Refresh ↻</button></h2>{history.length?history.map(x=><div className="row" key={x.id}>{x.job_id}<small>{x.status}</small></div>):<p>Applications appear here after discovery and preparation.</p>}</article></section>
- <aside className="dev"><label>Development-only user UUID (Google session is not yet enabled)</label><input value={uid} onChange={e=>setUid(e.target.value)} placeholder="Existing user UUID"/></aside><footer>APPLYPILOT AI <span>Privacy first · Human review before submit</span></footer></main>
+
+import { useEffect, useState } from "react";
+
+const api = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+const development = process.env.NODE_ENV === "development";
+
+type UserProfile = { id: string; email: string; name: string; picture?: string | null };
+
+export default function Home() {
+  const [uid, setUid] = useState("");
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [csrf, setCsrf] = useState("");
+  const [url, setUrl] = useState("");
+  const [provider, setProvider] = useState("gemini");
+  const [model, setModel] = useState("gemini-2.5-flash");
+  const [key, setKey] = useState("");
+  const [docs, setDocs] = useState<any[]>([]);
+  const [history, setHistory] = useState<any[]>([]);
+  const [msg, setMsg] = useState("Sign in to start building your job-search workspace.");
+
+  useEffect(() => {
+    fetch(api + "/api/auth/me", { credentials: "include" })
+      .then(async (response) => response.ok ? response.json() : null)
+      .then((data) => {
+        if (data?.authenticated) {
+          setUser(data.user);
+          setCsrf(data.csrf_token);
+          setMsg("Signed in. Your workspace is ready.");
+        }
+      })
+      .catch(() => setMsg("API is not reachable yet. Start the local services or check deployment."));
+  }, []);
+
+  const authHeaders = () => ({
+    ...(development && uid ? { "X-User-Id": uid } : {}),
+    ...(csrf ? { "X-CSRF-Token": csrf } : {}),
+  });
+
+  async function saveKey() {
+    const response = await fetch(api + "/api/v1/settings/provider-key", {
+      method: "PUT",
+      credentials: "include",
+      headers: { ...authHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ provider, model, api_key: key }),
+    });
+    setMsg(response.ok ? "Encrypted key saved." : await response.text());
+    if (response.ok) setKey("");
+  }
+
+  async function addCompany() {
+    const response = await fetch(api + "/api/v1/companies", {
+      method: "POST",
+      credentials: "include",
+      headers: { ...authHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ website_url: url }),
+    });
+    setMsg(response.ok ? "Company saved. Discovery worker integration is the next milestone." : await response.text());
+  }
+
+  async function upload(file?: File) {
+    if (!file) return;
+    const data = new FormData();
+    data.append("file", file);
+    const response = await fetch(api + "/api/v1/documents", {
+      method: "POST",
+      credentials: "include",
+      headers: authHeaders(),
+      body: data,
+    });
+    if (response.ok) {
+      const document = await response.json();
+      setDocs((items) => [document, ...items]);
+      setMsg("PDF uploaded.");
+    } else {
+      setMsg(await response.text());
+    }
+  }
+
+  async function loadHistory() {
+    const response = await fetch(api + "/api/v1/applications", {
+      credentials: "include",
+      headers: authHeaders(),
+    });
+    if (response.ok) setHistory(await response.json());
+    else setMsg(await response.text());
+  }
+
+  async function logout() {
+    const response = await fetch(api + "/api/auth/logout", {
+      method: "POST",
+      credentials: "include",
+      headers: { "X-CSRF-Token": csrf },
+    });
+    if (response.ok) {
+      setUser(null);
+      setCsrf("");
+      setMsg("Signed out.");
+    } else {
+      setMsg(await response.text());
+    }
+  }
+
+  const canUseWorkspace = Boolean(user || (development && uid));
+
+  return (
+    <main className="wrap">
+      <nav>
+        <b>◈ ApplyPilot <span>AI</span></b>
+        {user ? (
+          <div className="account">
+            <span>{user.name}</span>
+            <button className="quiet" onClick={logout}>Sign out</button>
+          </div>
+        ) : (
+          <a href={api + "/api/auth/google"}>Continue with Google ↗</a>
+        )}
+      </nav>
+      <header>
+        <small>YOUR CAREER WORKSPACE</small>
+        <h1>Make every application<br /><i>count.</i></h1>
+        <p>Bring your own AI key. Add a company career page. Organize your experience, discover roles, and prepare applications for your review.</p>
+        <div className="notice">● {msg}</div>
+        {user && <div className="notice">Signed in as {user.email}</div>}
+      </header>
+      <section className="grid">
+        <article className="panel wide">
+          <small>01 / DISCOVERY</small>
+          <h2>Company career page</h2>
+          <label>Company website or careers URL</label>
+          <div className="line">
+            <input value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://company.com/careers" />
+            <button onClick={addCompany} disabled={!canUseWorkspace || !url}>Add company ↗</button>
+          </div>
+          <p>Company discovery and job extraction are worker milestones.</p>
+        </article>
+        <article className="panel">
+          <small>02 / MODEL ACCESS · BYOK</small>
+          <h2>Your AI provider</h2>
+          <label>Provider</label>
+          <select value={provider} onChange={(event) => {
+            setProvider(event.target.value);
+            setModel(({ gemini: "gemini-2.5-flash", openai: "gpt-4.1-mini", anthropic: "claude-3-7-sonnet-latest", xai: "grok-3-mini" } as Record<string, string>)[event.target.value]);
+          }}>
+            <option value="gemini">Gemini</option>
+            <option value="openai">OpenAI</option>
+            <option value="anthropic">Claude</option>
+            <option value="xai">Grok</option>
+          </select>
+          <label>Model</label>
+          <input value={model} onChange={(event) => setModel(event.target.value)} />
+          <label>API key</label>
+          <input type="password" value={key} onChange={(event) => setKey(event.target.value)} placeholder="Paste key" />
+          <button className="full" onClick={saveKey} disabled={!canUseWorkspace || !key}>Save encrypted key</button>
+          <p>Keys are encrypted before storage and never returned by the API.</p>
+        </article>
+        <article className="panel">
+          <small>03 / YOUR CONTEXT</small>
+          <h2>Knowledge base</h2>
+          <label className="drop">
+            <input type="file" accept="application/pdf,.pdf" onChange={(event) => upload(event.target.files?.[0])} />
+            <strong>＋ Upload resume / knowledge PDF</strong>
+            <span>PDF only · 20 MB limit</span>
+          </label>
+          {docs.map((document) => <div className="row" key={document.id}>{document.filename}<small>{document.status}</small></div>)}
+        </article>
+        <article className="panel">
+          <small>04 / TRACKING</small>
+          <h2>Application history <button className="quiet" onClick={loadHistory} disabled={!canUseWorkspace}>Refresh ↻</button></h2>
+          {history.length ? history.map((item) => <div className="row" key={item.id}>{item.job_id}<small>{item.status}</small></div>) : <p>Applications appear here after discovery and preparation.</p>}
+        </article>
+      </section>
+      {development && (
+        <aside className="dev">
+          <label>Development-only user UUID (local testing only)</label>
+          <input value={uid} onChange={(event) => setUid(event.target.value)} placeholder="Existing user UUID" />
+        </aside>
+      )}
+      <footer>APPLYPILOT AI <span>Privacy first · Human review before submit</span></footer>
+    </main>
+  );
 }
