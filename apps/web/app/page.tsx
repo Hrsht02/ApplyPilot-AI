@@ -95,6 +95,20 @@ export default function Home() {
     else setMsg(await response.text());
   }
 
+  async function createLocalUser() {
+    const response = await fetch(api + "/api/auth/dev/bootstrap", {
+      method: "POST",
+      credentials: "include",
+    });
+    if (response.ok) {
+      const localUser = await response.json();
+      setUid(localUser.id);
+      setMsg("Local development profile created. Workspace actions are enabled.");
+    } else {
+      setMsg(await response.text());
+    }
+  }
+
   async function logout() {
     const response = await fetch(api + "/api/auth/logout", {
       method: "POST",
@@ -183,6 +197,7 @@ export default function Home() {
         <aside className="dev">
           <label>Development-only user UUID (local testing only)</label>
           <input value={uid} onChange={(event) => setUid(event.target.value)} placeholder="Existing user UUID" />
+          <button className="quiet" onClick={createLocalUser}>Create local test profile</button>
         </aside>
       )}
       <footer>APPLYPILOT AI <span>Privacy first · Human review before submit</span></footer>
