@@ -158,7 +158,7 @@ export default function Home() {
           <small>03 / YOUR CONTEXT</small>
           <h2>Knowledge base</h2>
           <label className="drop">
-            <input type="file" accept="application/pdf,.pdf" onChange={(event) => upload(event.target.files?.[0])} />
+            <input type="file" accept="application/pdf,.pdf" disabled={!canUseWorkspace} onChange={(event) => upload(event.target.files?.[0])} />
             <strong>＋ Upload resume / knowledge PDF</strong>
             <span>PDF only · 20 MB limit</span>
           </label>
