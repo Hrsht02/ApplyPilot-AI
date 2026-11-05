@@ -2,6 +2,7 @@ import asyncio
 import base64
 import hashlib
 import secrets
+import uuid
 from urllib.parse import urlencode
 
 import httpx
@@ -137,7 +138,12 @@ async def me(request: Request, db: AsyncSession = Depends(get_db)):
     session = await get_session(session_id) if session_id else None
     if not session:
         return {"authenticated": False}
-    user = await db.get(User, session.get("user_id"))
+    try:
+        user_id = uuid.UUID(session["user_id"])
+    except (ValueError, KeyError, TypeError):
+        await delete_session(session_id)
+        return {"authenticated": False}
+    user = await db.get(User, user_id)
     if not user:
         await delete_session(session_id)
         return {"authenticated": False}
