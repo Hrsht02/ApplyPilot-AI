@@ -58,6 +58,15 @@ export default function Home() {
     setMsg(response.ok ? "Company saved. Discovery worker integration is the next milestone." : await response.text());
   }
 
+  async function loadDocuments() {
+    const response = await fetch(api + "/api/v1/documents", {
+      credentials: "include",
+      headers: authHeaders(),
+    });
+    if (response.ok) setDocs(await response.json());
+    else setMsg(await response.text());
+  }
+
   async function upload(file?: File) {
     if (!file) return;
     const data = new FormData();
@@ -156,7 +165,7 @@ export default function Home() {
         </article>
         <article className="panel">
           <small>03 / YOUR CONTEXT</small>
-          <h2>Knowledge base</h2>
+          <h2>Knowledge base <button className="quiet" onClick={loadDocuments} disabled={!canUseWorkspace}>Refresh ↻</button></h2>
           <label className="drop">
             <input type="file" accept="application/pdf,.pdf" disabled={!canUseWorkspace} onChange={(event) => upload(event.target.files?.[0])} />
             <strong>＋ Upload resume / knowledge PDF</strong>
