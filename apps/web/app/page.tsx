@@ -44,7 +44,7 @@ export default function Home() {
       headers: { ...authHeaders(), "Content-Type": "application/json" },
       body: JSON.stringify({ provider, model, api_key: key }),
     });
-    setMsg(response.ok ? "Encrypted key saved." : await response.text());
+    setMsg(response.ok ? "Provider key validated and encrypted." : await response.text());
     if (response.ok) setKey("");
   }
 
