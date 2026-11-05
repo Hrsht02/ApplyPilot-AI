@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.db import get_db
 from app.models import Application, Company, KnowledgeDocument, ProviderCredential, User
+from app.providers.registry import ProviderValidationError, validate_provider_key
 from app.security import encrypt_secret
 from app.session_store import get_session
 
@@ -65,6 +66,10 @@ class CompanyIn(BaseModel):
 
 @router.put("/settings/provider-key")
 async def save_key(p: ProviderIn, u: User = Depends(current_user), db: AsyncSession = Depends(get_db)):
+    try:
+        await validate_provider_key(p.provider, p.api_key, p.model)
+    except ProviderValidationError as exc:
+        raise HTTPException(exc.status_code, exc.message) from exc
     q = select(ProviderCredential).where(
         ProviderCredential.user_id == u.id, ProviderCredential.provider == p.provider
     )
