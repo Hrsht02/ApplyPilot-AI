@@ -1,5 +1,5 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from redis.asyncio import Redis
 from app.db import engine
@@ -19,7 +19,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="ApplyPilot AI API", version="0.1.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.app_base_url],
+    allow_origins=[settings.app_base_url.rstrip('/')],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization", "X-User-Id", "X-CSRF-Token"],
@@ -36,7 +36,7 @@ async def live():
     return {"status": "ok"}
 
 @app.get("/health/ready")
-async def ready():
+async def ready(response: Response):
     checks = {}
     try:
         from sqlalchemy import text
@@ -54,4 +54,6 @@ async def ready():
     finally:
         await client.aclose()
     healthy = all(value == "ok" for value in checks.values())
+    if not healthy:
+        response.status_code = 503
     return {"status": "ok" if healthy else "degraded", "checks": checks}
