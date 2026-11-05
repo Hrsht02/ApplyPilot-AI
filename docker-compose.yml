@@ -12,14 +12,31 @@ services:
     image: redis:7-alpine
     command: ["redis-server", "--appendonly", "yes"]
     volumes: [redis_data:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
   api:
     build: ./apps/api
     env_file: .env
     environment:
       DATABASE_URL: postgresql+asyncpg://applypilot:applypilot_dev@postgres:5432/applypilot
       REDIS_URL: redis://redis:6379/0
-    depends_on: [postgres, redis]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
     ports: ["8000:8000"]
+  worker:
+    build: ./apps/api
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://applypilot:applypilot_dev@postgres:5432/applypilot
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    command: celery -A app.worker.celery_app:celery_app worker --loglevel=INFO
   web:
     build: ./apps/web
     environment: { NEXT_PUBLIC_API_BASE_URL: http://localhost:8000 }
