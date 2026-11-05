@@ -31,6 +31,21 @@ def create_pkce_pair() -> tuple[str, str]:
     return verifier, challenge
 
 
+@router.post("/dev/bootstrap")
+async def dev_bootstrap(db: AsyncSession = Depends(get_db)):
+    if settings.app_env != "development":
+        raise HTTPException(404, "Not found")
+    identifier = uuid.uuid4()
+    user = User(
+        google_sub=f"dev:{identifier}",
+        email=f"local-{identifier.hex}@applypilot.test",
+        name="Local Developer",
+    )
+    db.add(user)
+    await db.commit()
+    return {"id": str(user.id), "email": user.email, "name": user.name}
+
+
 @router.get("/google")
 async def google_login():
     if not settings.google_client_id or not settings.google_client_secret:
