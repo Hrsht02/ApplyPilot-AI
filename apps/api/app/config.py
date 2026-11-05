@@ -12,6 +12,12 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     credential_encryption_key: str = ""
     local_storage_path: str = "./uploads"
+    storage_backend: str = "local"
+    s3_bucket: str = ""
+    s3_region: str = "us-east-1"
+    s3_endpoint_url: str = ""
+    aws_access_key_id: str = ""
+    aws_secret_access_key: str = ""
     max_upload_mb: int = 20
     google_client_id: str = ""
     google_client_secret: str = ""
