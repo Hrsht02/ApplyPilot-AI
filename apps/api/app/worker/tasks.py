@@ -5,7 +5,7 @@ import uuid
 from pypdf import PdfReader
 from pypdf.errors import PdfReadError
 
-from app.db import SessionLocal
+from app.db import SessionLocal, engine
 from app.models import KnowledgeDocument
 from app.storage import read_bytes
 from app.worker.celery_app import celery_app
@@ -54,9 +54,16 @@ async def process_document(document_id: str) -> str:
         return document.status
 
 
+async def process_and_dispose(document_id: str) -> str:
+    try:
+        return await process_document(document_id)
+    finally:
+        await engine.dispose()
+
+
 @celery_app.task(bind=True, name="applypilot.documents.extract", max_retries=3, default_retry_delay=30)
 def extract_document(self, document_id: str) -> str:
     try:
-        return asyncio.run(process_document(document_id))
+        return asyncio.run(process_and_dispose(document_id))
     except Exception as exc:
         raise self.retry(exc=exc)
