@@ -3,7 +3,6 @@ import io
 import uuid
 
 from pypdf import PdfReader
-from pypdf.errors import PdfReadError
 
 from app.db import SessionLocal, engine
 from app.models import KnowledgeDocument
