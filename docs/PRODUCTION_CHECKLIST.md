@@ -3,12 +3,12 @@
 This is an evolving engineering checklist, not a certification that the application is production-ready.
 
 ## Identity and tenant isolation
-- [ ] Implement Google OAuth with state and nonce validation, issuer/audience/signature/expiry checks, secure HttpOnly session cookies, CSRF protection, logout and revocation.
+- [x] Implement Google OAuth with one-time Redis state, PKCE S256, nonce validation, Google ID-token signature/audience/expiry verification, opaque HttpOnly sessions, CSRF protection, and Redis-backed logout revocation. Configure and test the production Google OAuth client and redirect URI before launch.
 - [ ] Remove the development-only X-User-Id identity shim before public deployment.
 - [ ] Add tenant-scoped authorization to every user-owned record and automated cross-tenant isolation tests.
 
 ## Data and secrets
-- [ ] Add Alembic migrations, backup/restore drills, retention and deletion workflows.
+- [x] Add an initial Alembic schema migration. [ ] Add backup/restore drills, retention and deletion workflows.
 - [ ] Replace local uploads with private object storage, signed URLs, malware scanning and upload limits.
 - [ ] Encrypt BYOK credentials with managed KMS/envelope encryption; never log plaintext keys.
 - [ ] Add request limits, quotas and per-user/provider rate limits.
