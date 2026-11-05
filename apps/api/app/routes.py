@@ -150,7 +150,7 @@ async def add_company(p: CompanyIn, u: User = Depends(current_user), db: AsyncSe
     db.add(company)
     await db.commit()
     await db.refresh(company)
-    return {"id": str(company.id), "website_url": company.website_url, "status": "queued"}
+    return {"id": str(company.id), "website_url": company.website_url, "status": "saved"}
 
 
 @router.get("/applications")
