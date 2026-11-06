@@ -12,11 +12,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.db import get_db
-from app.models import Application, Company, KnowledgeDocument, ProviderCredential, User
+from app.models import Application, Company, JobOpening, KnowledgeDocument, ProviderCredential, User
 from app.providers.registry import ProviderValidationError, validate_provider_key
 from app.security import encrypt_secret
 from app.storage import StorageError, save_bytes
-from app.worker.tasks import extract_document
+from app.worker.tasks import discover_company, extract_document
+from app.discovery.safe_fetch import UnsafeTarget, normalize_https_url
 from app.session_store import get_session
 
 router = APIRouter(prefix="/v1")
@@ -140,18 +141,107 @@ async def list_documents(u: User = Depends(current_user), db: AsyncSession = Dep
         for row in rows
     ]
 
-@router.post("/companies")
-async def add_company(p: CompanyIn, u: User = Depends(current_user), db: AsyncSession = Depends(get_db)):
-    parts = urlparse(p.website_url)
-    if parts.scheme != "https" or not parts.hostname:
-        raise HTTPException(400, "Use an HTTPS company URL")
-    domain = parts.hostname.lower().removeprefix("www.")
-    company = Company(user_id=u.id, website_url=p.website_url, normalized_domain=domain)
-    db.add(company)
+@router.post("/companies", status_code=202)
+async def add_company(
+    p: CompanyIn,
+    u: User = Depends(current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        safe_url = normalize_https_url(p.website_url)
+    except UnsafeTarget as exc:
+        raise HTTPException(400, str(exc)) from exc
+    domain = (urlparse(safe_url).hostname or "").lower().removeprefix("www.")
+    query = select(Company).where(
+        Company.user_id == u.id,
+        Company.normalized_domain == domain,
+    )
+    company = (await db.execute(query)).scalar_one_or_none()
+    if company is None:
+        company = Company(
+            user_id=u.id,
+            website_url=safe_url,
+            normalized_domain=domain,
+            discovery_status="queued",
+        )
+        db.add(company)
+    else:
+        company.website_url = safe_url
+        company.discovery_status = "queued"
+        company.discovery_error = None
     await db.commit()
     await db.refresh(company)
-    return {"id": str(company.id), "website_url": company.website_url, "status": "saved"}
+    try:
+        discover_company.delay(str(company.id))
+    except Exception as exc:
+        company.discovery_status = "queue_error"
+        company.discovery_error = "The discovery queue is unavailable"
+        await db.commit()
+        raise HTTPException(503, "Company saved, but the discovery queue is unavailable") from exc
+    return {
+        "id": str(company.id),
+        "website_url": company.website_url,
+        "discovery_status": company.discovery_status,
+    }
 
+
+@router.get("/companies")
+async def list_companies(
+    u: User = Depends(current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    rows = (await db.execute(
+        select(Company)
+        .where(Company.user_id == u.id)
+        .order_by(Company.id.desc())
+        .limit(100)
+    )).scalars()
+    return [
+        {
+            "id": str(row.id),
+            "website_url": row.website_url,
+            "normalized_domain": row.normalized_domain,
+            "discovery_status": row.discovery_status,
+            "discovery_error": row.discovery_error,
+            "last_discovered_at": row.last_discovered_at.isoformat() if row.last_discovered_at else None,
+        }
+        for row in rows
+    ]
+
+
+@router.get("/jobs")
+async def list_jobs(
+    company_id: uuid.UUID | None = None,
+    u: User = Depends(current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    query = (
+        select(JobOpening, Company)
+        .join(Company, Company.id == JobOpening.company_id)
+        .where(Company.user_id == u.id)
+        .order_by(JobOpening.last_seen_at.desc())
+        .limit(200)
+    )
+    if company_id:
+        query = query.where(Company.id == company_id)
+    rows = (await db.execute(query)).all()
+    return [
+        {
+            "id": str(job.id),
+            "company_id": str(company.id),
+            "company": company.normalized_domain,
+            "title": job.title,
+            "description": job.description,
+            "apply_url": job.apply_url,
+            "location": job.location,
+            "workplace_type": job.workplace_type,
+            "source": job.source,
+            "match_score": job.match_score,
+            "first_seen_at": job.first_seen_at.isoformat() if job.first_seen_at else None,
+            "last_seen_at": job.last_seen_at.isoformat() if job.last_seen_at else None,
+        }
+        for job, company in rows
+    ]
 
 @router.get("/applications")
 async def history(u: User = Depends(current_user), db: AsyncSession = Depends(get_db)):
