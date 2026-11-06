@@ -1,6 +1,7 @@
 import asyncio
 import ipaddress
 import socket
+from collections.abc import Awaitable, Callable
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
 import aiohttp
@@ -87,6 +88,7 @@ async def fetch_public(
     accept: str = "text/html,application/json;q=0.9,*/*;q=0.1",
     max_bytes: int = 2_000_000,
     max_redirects: int = 4,
+    redirect_check: Callable[[str], Awaitable[bool]] | None = None,
 ) -> tuple[str, str, bytes]:
     """Fetch a public HTTPS resource with DNS pinning, bounded redirects and body size."""
     current = normalize_https_url(url)
@@ -111,7 +113,10 @@ async def fetch_public(
                         location = response.headers.get("Location")
                         if not location:
                             raise FetchFailure("Redirect response had no destination")
-                        current = normalize_https_url(urljoin(current, location))
+                        next_url = normalize_https_url(urljoin(current, location))
+                        if redirect_check is not None and not await redirect_check(next_url):
+                            raise FetchFailure("Redirect destination does not permit automated discovery")
+                        current = next_url
                         continue
                     if response.status in {401, 403, 407, 429}:
                         raise FetchFailure(f"Website declined automated access (HTTP {response.status})")
