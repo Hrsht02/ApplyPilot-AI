@@ -57,3 +57,16 @@ def test_generic_careers_page_extracts_job_links(monkeypatch):
     assert len(jobs) == 1
     assert jobs[0].title == "Senior Python Engineer"
     assert jobs[0].apply_url == "https://acme.example/jobs/123"
+
+
+def test_company_page_redirect_to_unrelated_domain_is_rejected(monkeypatch):
+    async def fake_fetch(url, **kwargs):
+        return "https://unrelated.example/careers", "text/html", b"<html></html>"
+
+    monkeypatch.setattr(parser, "fetch_respecting_robots", fake_fetch)
+    try:
+        asyncio.run(parser.discover_jobs("https://acme.example/careers"))
+    except parser.FetchFailure as exc:
+        assert "unrelated" in str(exc)
+    else:
+        raise AssertionError("Unexpected cross-domain redirect was accepted")
