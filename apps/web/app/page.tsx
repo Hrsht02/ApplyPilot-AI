@@ -154,11 +154,21 @@ export default function Home() {
   const canUseWorkspace = Boolean(user || (development && uid));
 
   useEffect(() => {
-    if (canUseWorkspace) {
-      void loadCompanies();
-      void loadJobs();
-    }
-  }, [canUseWorkspace, user, uid, csrf]);
+    if (!canUseWorkspace) return;
+    const headers = {
+      ...(development && uid ? { "X-User-Id": uid } : {}),
+      ...(csrf ? { "X-CSRF-Token": csrf } : {}),
+    };
+    Promise.all([
+      fetch(api + "/api/v1/companies", { credentials: "include", headers }),
+      fetch(api + "/api/v1/jobs", { credentials: "include", headers }),
+    ])
+      .then(async ([companyResponse, jobResponse]) => {
+        if (companyResponse.ok) setCompanies(await companyResponse.json());
+        if (jobResponse.ok) setJobs(await jobResponse.json());
+      })
+      .catch(() => setMsg("Could not load saved companies or discovered jobs."));
+  }, [canUseWorkspace, uid, csrf]);
 
   return (
     <main className="wrap">
