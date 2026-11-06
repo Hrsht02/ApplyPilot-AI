@@ -31,7 +31,7 @@ def extract_pdf_text(content: bytes) -> str:
             total += min(len(text), remaining)
         if total >= MAX_EXTRACTED_CHARS:
             break
-    return "\\n\\n".join(chunks).strip()
+    return "\n\n".join(chunks).strip()
 
 
 async def process_document(document_id: str) -> str:
