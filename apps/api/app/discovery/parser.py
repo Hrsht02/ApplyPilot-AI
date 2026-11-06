@@ -231,7 +231,7 @@ async def discover_jobs(start_url: str) -> tuple[str, list[JobRecord]]:
             if slug:
                 api_url = f"https://api.lever.co/v0/postings/{slug}?mode=json"
                 try:
-                    _, _, payload = await fetch_public(api_url, accept="application/json", max_bytes=2_000_000)
+                    _, _, payload = await fetch_respecting_robots(api_url, accept="application/json", max_bytes=2_000_000)
                     for job in _extract_lever(json.loads(payload), api_url):
                         jobs[job.apply_url] = job
                 except (FetchFailure, ValueError, TypeError):
