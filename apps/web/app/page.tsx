@@ -153,6 +153,13 @@ export default function Home() {
 
   const canUseWorkspace = Boolean(user || (development && uid));
 
+  useEffect(() => {
+    if (canUseWorkspace) {
+      void loadCompanies();
+      void loadJobs();
+    }
+  }, [canUseWorkspace, user, uid, csrf]);
+
   return (
     <main className="wrap">
       <nav>
