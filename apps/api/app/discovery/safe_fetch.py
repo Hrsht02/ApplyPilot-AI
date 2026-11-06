@@ -74,8 +74,9 @@ def normalize_https_url(url: str) -> str:
         literal = None
     if literal is not None and not literal.is_global:
         raise UnsafeTarget("Private and reserved IP addresses are not allowed")
+    netloc = f"[{host}]" if isinstance(literal, ipaddress.IPv6Address) else host
     path = parsed.path or "/"
-    return urlunsplit(("https", host, path, parsed.query, ""))
+    return urlunsplit(("https", netloc, path, parsed.query, ""))
 
 
 async def fetch_public(
