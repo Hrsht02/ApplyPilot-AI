@@ -139,10 +139,16 @@ def _extract_greenhouse(payload: dict, base: str) -> list[JobRecord]:
         title = clean_text(item.get("title", ""))
         apply_url = item.get("absolute_url") or ""
         if title and apply_url:
+            try:
+                safe_apply_url = normalize_https_url(apply_url)
+            except ValueError:
+                continue
+            description_parser = PageParser()
+            description_parser.feed(str(item.get("content", "")))
             jobs.append(JobRecord(
                 title=title,
-                description=clean_text(item.get("content", ""))[:12000],
-                apply_url=normalize_https_url(apply_url),
+                description=description_parser.text[:12000],
+                apply_url=safe_apply_url,
                 location=clean_text((item.get("location") or {}).get("name", "")) or None,
                 source="greenhouse",
             ))
@@ -157,9 +163,13 @@ def _extract_lever(payload: list, base: str) -> list[JobRecord]:
         categories = item.get("categories") or {}
         description = clean_text(item.get("descriptionPlain") or item.get("description") or "")
         if title and apply_url:
+            try:
+                safe_apply_url = normalize_https_url(apply_url)
+            except ValueError:
+                continue
             jobs.append(JobRecord(
                 title=title, description=description[:12000],
-                apply_url=normalize_https_url(apply_url),
+                apply_url=safe_apply_url,
                 location=clean_text(categories.get("location", "")) or None,
                 workplace_type=clean_text(categories.get("commitment", "")) or None,
                 source="lever",
