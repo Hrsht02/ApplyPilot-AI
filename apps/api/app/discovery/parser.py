@@ -215,6 +215,10 @@ def _extract_lever(payload: list, base: str) -> list[JobRecord]:
 async def discover_jobs(start_url: str) -> tuple[str, list[JobRecord]]:
     start = normalize_https_url(start_url)
     final_url, content_type, body = await fetch_respecting_robots(start)
+    initial_host = _host(start)
+    final_host = _host(final_url)
+    if not _same_company_domain(final_host, initial_host) and not _known_ats_host(final_host):
+        raise FetchFailure("Company URL redirected to an unrelated, unsupported domain")
     if "json" in content_type:
         raise FetchFailure("The supplied URL returned JSON, not a company page")
     parser = PageParser()
