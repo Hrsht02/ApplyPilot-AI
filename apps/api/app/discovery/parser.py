@@ -1,8 +1,9 @@
 import json
 import re
+from urllib.robotparser import RobotFileParser
 from dataclasses import dataclass
 from html.parser import HTMLParser
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import urljoin, urlsplit, urlunsplit
 
 from app.discovery.safe_fetch import FetchFailure, fetch_public, normalize_https_url
 
@@ -11,6 +12,7 @@ CAREER_WORDS = ("career", "careers", "jobs", "job-opportunities", "join-us", "wo
 JOB_WORDS = ("job", "jobs", "opening", "opportunity", "position", "career", "apply")
 GREENHOUSE_HOSTS = {"boards.greenhouse.io", "job-boards.greenhouse.io"}
 LEVER_HOSTS = {"jobs.lever.co"}
+CRAWLER_AGENT = "ApplyPilotJobDiscovery"
 
 
 def clean_text(value: str) -> str:
@@ -73,6 +75,27 @@ class PageParser(HTMLParser):
     @property
     def text(self):
         return clean_text(" ".join(self.text_parts))[:12000]
+
+
+async def fetch_respecting_robots(url: str, *, accept: str = "text/html,application/json;q=0.9,*/*;q=0.1", max_bytes: int = 2_000_000):
+    normalized = normalize_https_url(url)
+    parsed = urlsplit(normalized)
+    origin = urlunsplit((parsed.scheme, parsed.netloc, "", "", ""))
+    robots_url = origin + "/robots.txt"
+    try:
+        _, _, robots_body = await fetch_public(
+            robots_url, accept="text/plain,*/*;q=0.1", max_bytes=200_000, max_redirects=2
+        )
+    except FetchFailure as exc:
+        if "HTTP 404" not in str(exc):
+            raise FetchFailure("Could not verify the website's crawler policy") from exc
+        robots_body = b""
+    parser = RobotFileParser()
+    parser.set_url(robots_url)
+    parser.parse(robots_body.decode("utf-8", errors="replace").splitlines())
+    if not parser.can_fetch(CRAWLER_AGENT, normalized):
+        raise FetchFailure("The website's robots.txt disallows automated discovery for this URL")
+    return await fetch_public(normalized, accept=accept, max_bytes=max_bytes)
 
 
 @dataclass
@@ -146,7 +169,7 @@ def _extract_lever(payload: list, base: str) -> list[JobRecord]:
 
 async def discover_jobs(start_url: str) -> tuple[str, list[JobRecord]]:
     start = normalize_https_url(start_url)
-    final_url, content_type, body = await fetch_public(start)
+    final_url, content_type, body = await fetch_respecting_robots(start)
     if "json" in content_type:
         raise FetchFailure("The supplied URL returned JSON, not a company page")
     parser = PageParser()
@@ -171,7 +194,7 @@ async def discover_jobs(start_url: str) -> tuple[str, list[JobRecord]]:
         if candidate == final_url:
             continue
         try:
-            page_url, page_type, page_body = await fetch_public(candidate, max_bytes=1_000_000)
+            page_url, page_type, page_body = await fetch_respecting_robots(candidate, max_bytes=1_000_000)
             if "html" not in page_type:
                 continue
             page_parser = PageParser()
@@ -188,7 +211,7 @@ async def discover_jobs(start_url: str) -> tuple[str, list[JobRecord]]:
             if slug:
                 api_url = f"https://boards-api.greenhouse.io/v1/boards/{slug}/jobs?content=true"
                 try:
-                    _, _, payload = await fetch_public(api_url, accept="application/json", max_bytes=2_000_000)
+                    _, _, payload = await fetch_respecting_robots(api_url, accept="application/json", max_bytes=2_000_000)
                     for job in _extract_greenhouse(json.loads(payload), api_url):
                         jobs[job.apply_url] = job
                 except (FetchFailure, ValueError, TypeError):
