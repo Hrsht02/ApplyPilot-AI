@@ -36,14 +36,23 @@ class Company(Base):
     user_id:Mapped[uuid.UUID]=mapped_column(ForeignKey("users.id",ondelete="CASCADE"),index=True)
     website_url:Mapped[str]=mapped_column(Text)
     normalized_domain:Mapped[str]=mapped_column(String(255),index=True)
+    discovery_status:Mapped[str]=mapped_column(String(30),default="queued")
+    discovery_error:Mapped[str|None]=mapped_column(Text,nullable=True)
+    last_discovered_at:Mapped[datetime|None]=mapped_column(DateTime(timezone=True),nullable=True)
 class JobOpening(Base):
     __tablename__="job_openings"
+    __table_args__=(UniqueConstraint("company_id","apply_url",name="uq_company_job_url"),)
     id:Mapped[uuid.UUID]=mapped_column(UUID(as_uuid=True),primary_key=True,default=uuid.uuid4)
     company_id:Mapped[uuid.UUID]=mapped_column(ForeignKey("companies.id",ondelete="CASCADE"),index=True)
     title:Mapped[str]=mapped_column(String(255))
     description:Mapped[str]=mapped_column(Text)
     apply_url:Mapped[str]=mapped_column(Text)
     match_score:Mapped[int|None]=mapped_column(Integer,nullable=True)
+    location:Mapped[str|None]=mapped_column(String(255),nullable=True)
+    workplace_type:Mapped[str|None]=mapped_column(String(120),nullable=True)
+    source:Mapped[str]=mapped_column(String(40),default="website")
+    first_seen_at:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=now)
+    last_seen_at:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=now)
 class Application(Base):
     __tablename__="applications"
     id:Mapped[uuid.UUID]=mapped_column(UUID(as_uuid=True),primary_key=True,default=uuid.uuid4)
