@@ -25,8 +25,9 @@
 - [ ] Chunking, embeddings, retrieval and user-scoped knowledge search
 
 ## Remaining product modules
-- [ ] SSRF-safe company website intake and careers-page discovery
-- [ ] Job normalization, deduplication and persistence
+- [x] SSRF-resistant HTTPS intake with public-IP DNS pinning, redirect checks, bounded downloads and robots.txt enforcement
+- [x] Careers-page discovery with generic HTML links plus Greenhouse and Lever board APIs
+- [x] Background Celery discovery task, company status tracking, job normalization, deduplication and tenant-scoped job listing API
 - [ ] Resume/job matching with explainable criteria
 - [ ] Application preparation and truthful answer generation
 - [ ] Human review, explicit submit approval and application history workflow
