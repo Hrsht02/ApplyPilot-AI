@@ -64,7 +64,7 @@ class ProviderIn(BaseModel):
 
 
 class CompanyIn(BaseModel):
-    website_url: str
+    website_url: str = Field(min_length=8, max_length=2048)
 
 
 @router.put("/settings/provider-key")
