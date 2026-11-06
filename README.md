@@ -3,7 +3,7 @@
 AI-assisted job application workspace. The product direction is to let candidates connect their own model provider, upload career documents, discover roles from company career pages, prepare applications, and track progress.
 
 ## Foundation status
-The repository contains a Next.js web shell, FastAPI API, PostgreSQL models and migrations, Redis/Celery workers, Google OAuth sign-in, opaque Redis-backed sessions, provider-key validation and encryption, PDF upload and text extraction, local Docker Compose, Render Blueprint, and GitHub Actions checks. The development-only user UUID header remains available only when APP_ENV=development; it is not production authentication.
+The repository contains a Next.js web shell, FastAPI API, PostgreSQL models and migrations, Redis/Celery workers, Google OAuth sign-in, opaque Redis-backed sessions, provider-key validation and encryption, PDF upload and text extraction, company careers discovery (generic pages, Greenhouse and Lever), robots.txt-aware DNS-pinned website fetching, tenant-scoped job listings, local Docker Compose, Render Blueprint, and GitHub Actions checks. The development-only user UUID header remains available only when APP_ENV=development; it is not production authentication.
 
 ## Stack
 - Web: Next.js 15, React 19, TypeScript
@@ -26,7 +26,7 @@ The local Compose database password is for development only. Never reuse it in h
 3. Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and GOOGLE_REDIRECT_URI in the API environment.
 4. Set APP_BASE_URL to the frontend origin. For production browser sessions, use a frontend and API on the same site (for example, app.example.com and api.example.com); default Vercel and Render hostnames are cross-site and may be blocked by browser third-party-cookie policies.
 
-Google sign-in uses one-time Redis OAuth state, nonce verification, PKCE S256, Google ID-token signature/audience verification, and an opaque HttpOnly session cookie. State-changing authenticated API calls require a CSRF token returned by /api/auth/me. BYOK keys are validated against the selected provider/model endpoint before being encrypted and saved. PDF extraction runs asynchronously; scanned PDFs are marked needs_ocr because OCR is not yet included.
+Google sign-in uses one-time Redis OAuth state, nonce verification, PKCE S256, Google ID-token signature/audience verification, and an opaque HttpOnly session cookie. State-changing authenticated API calls require a CSRF token returned by /api/auth/me. BYOK keys are validated against the selected provider/model endpoint before being encrypted and saved. PDF extraction runs asynchronously; scanned PDFs are marked needs_ocr because OCR is not yet included. Company discovery is queued through Celery, checks robots.txt, rejects non-public DNS targets and unsafe redirects, and currently supports generic HTML career links plus Greenhouse and Lever public job-board endpoints. Job listings are deduplicated per company and exposed through GET /api/v1/jobs.
 
 ## CI checks
 GitHub Actions installs API dependencies and runs pytest, then installs web dependencies and runs TypeScript checks and a Next.js production build.
