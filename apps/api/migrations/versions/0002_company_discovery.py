@@ -16,8 +16,8 @@ def upgrade():
     op.add_column("job_openings", sa.Column("location", sa.String(length=255), nullable=True))
     op.add_column("job_openings", sa.Column("workplace_type", sa.String(length=120), nullable=True))
     op.add_column("job_openings", sa.Column("source", sa.String(length=40), nullable=False, server_default="website"))
-    op.add_column("job_openings", sa.Column("first_seen_at", sa.DateTime(timezone=True), nullable=True))
-    op.add_column("job_openings", sa.Column("last_seen_at", sa.DateTime(timezone=True), nullable=True))
+    op.add_column("job_openings", sa.Column("first_seen_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()))
+    op.add_column("job_openings", sa.Column("last_seen_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()))
     op.create_unique_constraint("uq_company_job_url", "job_openings", ["company_id", "apply_url"])
 
 
