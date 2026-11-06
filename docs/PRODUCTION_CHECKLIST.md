@@ -14,7 +14,7 @@ This is an evolving engineering checklist, not a certification that the applicat
 - [ ] Add request limits, quotas and per-user/provider rate limits.
 
 ## Agent and browser safety
-- [ ] Protect company URL intake against SSRF, DNS rebinding, unsafe redirects and private IP access before fetching any user-supplied URL.
+- [x] Add HTTPS-only company URL validation, public-IP DNS pinning, redirect destination checks, bounded responses and robots.txt enforcement. [ ] Complete independent SSRF review and add production egress controls.
 - [ ] Run browser automation in isolated ephemeral workers with resource limits and per-domain concurrency caps.
 - [ ] Require user review and explicit approval before each final submission. Pause for CAPTCHA, MFA, bot protection or unsupported flows.
 
