@@ -70,10 +70,10 @@ def normalize_https_url(url: str) -> str:
         raise UnsafeTarget("Local hostnames are not allowed")
     try:
         literal = ipaddress.ip_address(host)
-        if not literal.is_global:
-            raise UnsafeTarget("Private and reserved IP addresses are not allowed")
     except ValueError:
-        pass
+        literal = None
+    if literal is not None and not literal.is_global:
+        raise UnsafeTarget("Private and reserved IP addresses are not allowed")
     path = parsed.path or "/"
     return urlunsplit(("https", host, path, parsed.query, ""))
 
