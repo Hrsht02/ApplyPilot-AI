@@ -4,6 +4,7 @@ import uuid
 from datetime import datetime, timezone
 
 from pypdf import PdfReader
+from sqlalchemy import select
 
 from app.db import SessionLocal, engine
 from app.models import Company, JobOpening, KnowledgeDocument
@@ -74,7 +75,7 @@ async def process_company_discovery(company_id: str) -> str:
         now = datetime.now(timezone.utc)
         for item in discovered:
             result = await db.execute(
-                __import__("sqlalchemy").select(JobOpening).where(
+                select(JobOpening).where(
                     JobOpening.company_id == company.id,
                     JobOpening.apply_url == item.apply_url,
                 )
