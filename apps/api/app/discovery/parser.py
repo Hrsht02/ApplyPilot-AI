@@ -194,7 +194,7 @@ async def discover_jobs(start_url: str) -> tuple[str, list[JobRecord]]:
             continue
         host = _host(candidate)
         if host == start_host or host in GREENHOUSE_HOSTS | LEVER_HOSTS:
-            score = _career_score(candidate, label)
+            score = 10 if host in GREENHOUSE_HOSTS | LEVER_HOSTS else _career_score(candidate, label)
             if score:
                 career_candidates.append((score, candidate))
     career_candidates.sort(key=lambda item: item[0], reverse=True)
