@@ -16,6 +16,8 @@ export default function Home() {
   const [model, setModel] = useState("gemini-2.5-flash");
   const [key, setKey] = useState("");
   const [docs, setDocs] = useState<any[]>([]);
+  const [companies, setCompanies] = useState<any[]>([]);
+  const [jobs, setJobs] = useState<any[]>([]);
   const [history, setHistory] = useState<any[]>([]);
   const [msg, setMsg] = useState("Sign in to start building your job-search workspace.");
 
@@ -55,7 +57,32 @@ export default function Home() {
       headers: { ...authHeaders(), "Content-Type": "application/json" },
       body: JSON.stringify({ website_url: url }),
     });
-    setMsg(response.ok ? "Company saved. Discovery worker integration is the next milestone." : await response.text());
+    if (response.ok) {
+      setMsg("Company added. Career-page discovery has been queued.");
+      setUrl("");
+      await loadCompanies();
+      await loadJobs();
+    } else {
+      setMsg(await response.text());
+    }
+  }
+
+  async function loadCompanies() {
+    const response = await fetch(api + "/api/v1/companies", {
+      credentials: "include",
+      headers: authHeaders(),
+    });
+    if (response.ok) setCompanies(await response.json());
+    else setMsg(await response.text());
+  }
+
+  async function loadJobs() {
+    const response = await fetch(api + "/api/v1/jobs", {
+      credentials: "include",
+      headers: authHeaders(),
+    });
+    if (response.ok) setJobs(await response.json());
+    else setMsg(await response.text());
   }
 
   async function loadDocuments() {
@@ -155,7 +182,31 @@ export default function Home() {
             <input value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://company.com/careers" />
             <button onClick={addCompany} disabled={!canUseWorkspace || !url}>Add company ↗</button>
           </div>
-          <p>Company discovery and job extraction are worker milestones.</p>
+          <div className="toolbar">
+            <button className="quiet" onClick={loadCompanies} disabled={!canUseWorkspace}>Refresh companies ↻</button>
+            <button className="quiet" onClick={loadJobs} disabled={!canUseWorkspace}>Refresh jobs ↻</button>
+          </div>
+          {companies.map((company) => (
+            <div className="row" key={company.id}>
+              <span>{company.normalized_domain}<small className="subrow">{company.discovery_error || company.discovery_status}</small></span>
+              <small>{company.discovery_status}</small>
+            </div>
+          ))}
+          <p>Discovery checks public HTTPS pages and supported career platforms. Sites that block automated access are skipped.</p>
+        </article>
+        <article className="panel wide">
+          <small>DISCOVERED OPENINGS</small>
+          <h2>Jobs found <span className="count">{jobs.length}</span></h2>
+          {jobs.length ? jobs.map((job) => (
+            <div className="job" key={job.id}>
+              <div>
+                <strong>{job.title}</strong>
+                <p>{job.company} · {job.location || "Location not listed"}{job.workplace_type ? " · " + job.workplace_type : ""}</p>
+                <small>{job.source}</small>
+              </div>
+              <a href={job.apply_url} target="_blank" rel="noreferrer">View role ↗</a>
+            </div>
+          )) : <p>No jobs loaded yet. Add a company and refresh after its discovery status changes to completed.</p>}
         </article>
         <article className="panel">
           <small>02 / MODEL ACCESS · BYOK</small>
