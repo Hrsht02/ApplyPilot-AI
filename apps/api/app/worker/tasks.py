@@ -100,7 +100,7 @@ async def process_company_discovery(company_id: str) -> str:
                 row.last_seen_at = now
 
         from urllib.parse import urlsplit
-        company.normalized_domain = (urlsplit(final_url).hostname or company.normalized_domain).lower()
+        company.normalized_domain = (urlsplit(final_url).hostname or company.normalized_domain).lower().removeprefix("www.")
         company.discovery_status = "completed"
         company.discovery_error = None
         company.last_discovered_at = now
