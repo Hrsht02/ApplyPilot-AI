@@ -163,6 +163,8 @@ def _slug_from_url(url: str, allowed_hosts: set[str]) -> str | None:
 def _extract_greenhouse(payload: dict, base: str) -> list[JobRecord]:
     jobs = []
     for item in payload.get("jobs", [])[:200]:
+        if not isinstance(item, dict):
+            continue
         title = clean_text(item.get("title", ""))
         apply_url = item.get("absolute_url") or ""
         if title and apply_url:
@@ -172,11 +174,13 @@ def _extract_greenhouse(payload: dict, base: str) -> list[JobRecord]:
                 continue
             description_parser = PageParser()
             description_parser.feed(str(item.get("content", "")))
+            location_data = item.get("location") or {}
+            location_name = location_data.get("name", "") if isinstance(location_data, dict) else str(location_data)
             jobs.append(JobRecord(
                 title=title,
                 description=description_parser.text[:12000],
                 apply_url=safe_apply_url,
-                location=clean_text((item.get("location") or {}).get("name", "")) or None,
+                location=clean_text(location_name) or None,
                 source="greenhouse",
             ))
     return jobs
@@ -185,9 +189,13 @@ def _extract_greenhouse(payload: dict, base: str) -> list[JobRecord]:
 def _extract_lever(payload: list, base: str) -> list[JobRecord]:
     jobs = []
     for item in payload[:200]:
+        if not isinstance(item, dict):
+            continue
         title = clean_text(item.get("text", ""))
         apply_url = item.get("hostedUrl") or item.get("applyUrl") or ""
         categories = item.get("categories") or {}
+        if not isinstance(categories, dict):
+            categories = {}
         description = clean_text(item.get("descriptionPlain") or item.get("description") or "")
         if title and apply_url:
             try:
