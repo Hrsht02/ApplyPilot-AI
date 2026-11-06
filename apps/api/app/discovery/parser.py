@@ -12,6 +12,12 @@ CAREER_WORDS = ("career", "careers", "jobs", "job-opportunities", "join-us", "wo
 JOB_WORDS = ("job", "jobs", "opening", "opportunity", "position", "career", "apply")
 GREENHOUSE_HOSTS = {"boards.greenhouse.io", "job-boards.greenhouse.io"}
 LEVER_HOSTS = {"jobs.lever.co"}
+KNOWN_ATS_SUFFIXES = (
+    "boards.greenhouse.io", "job-boards.greenhouse.io", "jobs.lever.co",
+    "jobs.ashbyhq.com", "jobs.smartrecruiters.com", "myworkdayjobs.com",
+    "workdayjobs.com", "jobs.workable.com", "jobs.personio.com",
+    "jobs.jobvite.com", "careers.icims.com",
+)
 CRAWLER_AGENT = "ApplyPilotJobDiscovery"
 
 
@@ -119,6 +125,20 @@ def _host(url: str) -> str:
     return (urlsplit(url).hostname or "").lower()
 
 
+def _same_company_domain(candidate_host: str, company_host: str) -> bool:
+    candidate = candidate_host.removeprefix("www.")
+    company = company_host.removeprefix("www.")
+    return (
+        candidate == company
+        or candidate.endswith("." + company)
+        or company.endswith("." + candidate)
+    )
+
+
+def _known_ats_host(host: str) -> bool:
+    return any(host == suffix or host.endswith("." + suffix) for suffix in KNOWN_ATS_SUFFIXES)
+
+
 def _career_score(url: str, label: str) -> int:
     value = f"{url} {label}".lower()
     return sum(2 if word in value else 0 for word in CAREER_WORDS)
@@ -200,8 +220,8 @@ async def discover_jobs(start_url: str) -> tuple[str, list[JobRecord]]:
         except ValueError:
             continue
         host = _host(candidate)
-        if host == start_host or host in GREENHOUSE_HOSTS | LEVER_HOSTS:
-            score = 10 if host in GREENHOUSE_HOSTS | LEVER_HOSTS else _career_score(candidate, label)
+        if _same_company_domain(host, start_host) or _known_ats_host(host):
+            score = 10 if _known_ats_host(host) else _career_score(candidate, label)
             if score:
                 career_candidates.append((score, candidate))
     career_candidates.sort(key=lambda item: item[0], reverse=True)
@@ -252,7 +272,7 @@ async def discover_jobs(start_url: str) -> tuple[str, list[JobRecord]]:
             except ValueError:
                 continue
             target_host = _host(target)
-            if target_host != start_host and target_host not in GREENHOUSE_HOSTS | LEVER_HOSTS:
+            if not _same_company_domain(target_host, start_host) and not _known_ats_host(target_host):
                 continue
             if target in jobs:
                 continue
