@@ -73,14 +73,12 @@ async def process_company_discovery(company_id: str) -> str:
             return company.discovery_status
 
         now = datetime.now(timezone.utc)
+        existing_result = await db.execute(
+            select(JobOpening).where(JobOpening.company_id == company.id)
+        )
+        existing_jobs = {row.apply_url: row for row in existing_result.scalars().all()}
         for item in discovered:
-            result = await db.execute(
-                select(JobOpening).where(
-                    JobOpening.company_id == company.id,
-                    JobOpening.apply_url == item.apply_url,
-                )
-            )
-            row = result.scalar_one_or_none()
+            row = existing_jobs.get(item.apply_url)
             if row is None:
                 db.add(JobOpening(
                     company_id=company.id,
