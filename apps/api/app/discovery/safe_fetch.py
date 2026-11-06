@@ -54,6 +54,8 @@ class PublicOnlyResolver(aiohttp.abc.AbstractResolver):
 
 
 def normalize_https_url(url: str) -> str:
+    if not isinstance(url, str) or len(url) > 2048:
+        raise UnsafeTarget("URL is missing or exceeds the 2048-character limit")
     try:
         parsed = urlsplit(url.strip())
         port = parsed.port
