@@ -77,7 +77,7 @@ class PageParser(HTMLParser):
         return clean_text(" ".join(self.text_parts))[:12000]
 
 
-async def fetch_respecting_robots(url: str, *, accept: str = "text/html,application/json;q=0.9,*/*;q=0.1", max_bytes: int = 2_000_000):
+async def _robots_allows(url: str) -> bool:
     normalized = normalize_https_url(url)
     parsed = urlsplit(normalized)
     origin = urlunsplit((parsed.scheme, parsed.netloc, "", "", ""))
@@ -87,16 +87,23 @@ async def fetch_respecting_robots(url: str, *, accept: str = "text/html,applicat
             robots_url, accept="text/plain,*/*;q=0.1", max_bytes=200_000, max_redirects=2
         )
     except FetchFailure as exc:
-        if "HTTP 404" not in str(exc):
-            raise FetchFailure("Could not verify the website's crawler policy") from exc
-        robots_body = b""
+        if "HTTP 404" in str(exc):
+            robots_body = b""
+        else:
+            return False
     parser = RobotFileParser()
     parser.set_url(robots_url)
     parser.parse(robots_body.decode("utf-8", errors="replace").splitlines())
-    if not parser.can_fetch(CRAWLER_AGENT, normalized):
-        raise FetchFailure("The website's robots.txt disallows automated discovery for this URL")
-    return await fetch_public(normalized, accept=accept, max_bytes=max_bytes)
+    return parser.can_fetch(CRAWLER_AGENT, normalized)
 
+
+async def fetch_respecting_robots(url: str, *, accept: str = "text/html,application/json;q=0.9,*/*;q=0.1", max_bytes: int = 2_000_000):
+    normalized = normalize_https_url(url)
+    if not await _robots_allows(normalized):
+        raise FetchFailure("The website's robots.txt blocks automated discovery or its policy could not be verified")
+    return await fetch_public(
+        normalized, accept=accept, max_bytes=max_bytes, redirect_check=_robots_allows
+    )
 
 @dataclass
 class JobRecord:
